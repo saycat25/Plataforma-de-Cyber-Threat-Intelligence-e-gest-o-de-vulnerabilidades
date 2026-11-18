@@ -11,7 +11,6 @@ from app.schemas import AnalysisOut, AnalysisRequest, FeedSyncOut
 from app.services.audit import record_event
 from app.services.deepseek import DeepSeekService, DeepSeekUnavailable
 from app.services.feeds import FeedError, sync_cisa_kev, sync_nvd_cve
-from app.services.risk import refresh_risk
 
 router = APIRouter(prefix="/intelligence", tags=["threat intelligence"])
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
