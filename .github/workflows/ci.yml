@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e "./backend[dev]"
+      - run: ruff check app tests
+        working-directory: backend
+      - run: pytest -q tests
+        working-directory: backend
+        env:
+          SECRET_KEY: ci-only-secret-not-for-production-0123456789
+          DATABASE_URL: sqlite:///./ci.db
