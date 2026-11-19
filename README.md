@@ -2,7 +2,7 @@
 
 Plataforma defensiva para centralizar ativos autorizados, vulnerabilidades, indicadores de comprometimento (IOCs), inteligência de ameaças, investigações e trilhas de auditoria. A DeepSeek funciona como camada assistiva de análise; decisões de prioridade são calculadas por regras determinísticas e evidências verificáveis.
 
-> **Estado do projeto:** implementação inicial funcional (MVP técnico) com API, autenticação RBAC, persistência PostgreSQL/SQLite, integração CISA KEV/NVD, análise opcional DeepSeek, interface web, Docker e testes automatizados. Ainda requer hardening, testes de carga, revisão independente e implantação controlada antes de uso em produção crítica.
+> **Estado do projeto:** versão 0.2.0 com API FastAPI, autenticação RBAC, descoberta de ativos protegida por escopos autorizados, importação de relatórios Trivy/OpenVAS, ingestão SIEM por JWT/HMAC, correlação IOC–ativo–CVE, CISA KEV/NVD, análise assistiva DeepSeek, interface web, Docker, migração Alembic e testes automatizados. Ainda requer hardening, testes de carga, revisão independente e implantação controlada antes de uso em produção crítica.
 
 ## Capacidades
 
@@ -12,6 +12,10 @@ Plataforma defensiva para centralizar ativos autorizados, vulnerabilidades, indi
 - **Threat Intelligence:** indicadores IPv4/IPv6, domínio, URL e hash, com classificação TLP e origem.
 - **Feeds oficiais:** sincronização do CISA Known Exploited Vulnerabilities (KEV) e consulta individual ao NVD API 2.0.
 - **Gestão de casos:** abertura, atribuição, estado, severidade e registro de investigação.
+- **Descoberta autorizada:** escopos CIDR/domínio/hostname com referência formal, expiração e validação de cada ativo importado; nenhuma varredura de rede é iniciada pela plataforma.
+- **Scanner intake:** importação idempotente de relatórios Trivy JSON e OpenVAS/GVM XML, vinculados a um ativo existente e com recálculo de risco.
+- **SIEM:** ingestão de eventos JSON por API autenticada ou webhook CEF/JSON assinado HMAC-SHA256; deduplicação por origem/ID.
+- **Correlação:** associação determinística de eventos a IPs/ativos, IOCs ativos e vulnerabilidades abertas, com justificativas e pontuação de triagem.
 - **Auditoria:** trilha de eventos para ações de escrita e ingestão.
 - **DeepSeek:** análise contextual opcional via API compatível com OpenAI, sem conceder à IA autoridade para executar ações.
 - **Segurança:** JWT, Argon2id, papéis `admin`/`analyst`/`viewer`, CORS configurável, validação de entrada, limites de payload e headers de segurança.
@@ -25,6 +29,10 @@ React + TypeScript (Vite)
         ▼
 FastAPI ── RBAC / validação / auditoria
    │            │
+   │            ├── Discovery Scope Guard (CIDR/DNS autorizado)
+   │            ├── Trivy JSON / OpenVAS XML (somente importação)
+   │            ├── SIEM JSON/CEF (JWT ou HMAC-SHA256)
+   │            ├── Correlation Engine (IOC + ativo + CVE)
    │            ├── DeepSeek (análise assistiva opcional)
    │            ├── CISA KEV (feed JSON allowlisted)
    │            └── NVD API 2.0 (CVE sob demanda)
@@ -123,6 +131,15 @@ No Windows PowerShell, use `$env:BOOTSTRAP_ADMIN_EMAIL` e `$env:BOOTSTRAP_ADMIN_
 | `GET/POST` | `/api/v1/users` | admin | Administração de usuários e papéis |
 | `PATCH` | `/api/v1/assets/{id}` | analyst+ | Atualizar metadados do ativo |
 | `PATCH` | `/api/v1/indicators/{id}` | analyst+ | Atualizar confiança, TLP ou estado |
+| `GET/POST` | `/api/v1/discovery/scopes` | admin / analyst (GET), admin (POST) | Escopos de autorização CIDR/DNS |
+| `POST` | `/api/v1/discovery/import` | admin / analyst | Importar apenas ativos dentro do escopo vigente |
+| `POST` | `/api/v1/scanners/trivy/import` | admin / analyst | Importar achados Trivy JSON |
+| `POST` | `/api/v1/scanners/openvas/import` | admin / analyst | Importar achados OpenVAS/GVM XML |
+| `POST` | `/api/v1/siem/events` | admin / analyst | Ingerir evento SIEM com JWT |
+| `POST` | `/api/v1/siem/webhook` | HMAC-SHA256 | Receber SIEM JSON/CEF assinado |
+| `GET` | `/api/v1/siem/events` | Autenticado | Consultar eventos SIEM |
+| `GET` | `/api/v1/siem/correlations` | Autenticado | Consultar correlações IOC/ativo/CVE |
+| `POST` | `/api/v1/siem/correlations/{event_id}/analysis` | admin / analyst | Análise assistiva DeepSeek da correlação |
 
 ## Priorização de vulnerabilidades
 
@@ -153,7 +170,7 @@ A sincronização KEV consulta apenas o endpoint fixo do CISA; não aceita URL f
 
 ## Segurança e uso autorizado
 
-Esta plataforma é uma ferramenta defensiva. A versão incluída **não implementa exploração, brute force, varredura ativa ou execução remota**. O inventário deve conter somente ativos próprios ou explicitamente autorizados. Integrações futuras com scanners devem importar resultados de ferramentas aprovadas e manter escopo, autorização e trilha de auditoria.
+Esta plataforma é uma ferramenta defensiva. A versão incluída **não implementa exploração, brute force, varredura ativa ou execução remota**. O inventário deve conter somente ativos próprios ou explicitamente autorizados. A descoberta disponível é uma guarda de escopo e importação de inventário: não executa scanning ativo. Registre CIDR/domínio/hostname com referência de autorização e validade antes de importar; lotes que contenham um registro fora do escopo são rejeitados integralmente. Os conectores Trivy e OpenVAS apenas consomem arquivos de resultado já produzidos. O webhook SIEM exige `SIEM_WEBHOOK_SECRET` e HMAC-SHA256; mantenha o segredo fora do GitHub. A pontuação de correlação é heurística de triagem, não um veredito nem substituto às regras de detecção do SIEM.
 
 Antes de produção:
 
@@ -165,11 +182,11 @@ Antes de produção:
 6. Faça threat modeling, pentest autorizado, teste de carga e revisão de código independente.
 7. Implemente SIEM/observabilidade e alertas para acessos e operações privilegiadas.
 
-Consulte `docs/SECURITY.md`, `docs/THREAT_MODEL.md` e `docs/OPERATIONS.md`.
+Consulte `docs/INTEGRATIONS.md`, `docs/SECURITY.md`, `docs/THREAT_MODEL.md` e `docs/OPERATIONS.md`.
 
 ## Pacote de distribuição
 
-O pacote compactado desta versão também está disponível em [`dist/cti-platform-0.1.0.tar.gz`](dist/cti-platform-0.1.0.tar.gz). Confira a integridade pelo arquivo [`SHA256SUMS`](SHA256SUMS).
+Os pacotes compactados desta versão estão disponíveis em [`dist/cti-platform-0.2.0.tar.gz`](dist/cti-platform-0.2.0.tar.gz) e [`dist/cti-platform-0.2.0.zip`](dist/cti-platform-0.2.0.zip). Confira a integridade pelos hashes listados em [`SHA256SUMS`](SHA256SUMS).
 
 ## Licença
 

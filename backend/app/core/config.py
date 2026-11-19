@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-flash"
     nvd_api_key: str | None = None
+    siem_webhook_secret: str | None = None
     log_level: str = "INFO"
 
     @field_validator("secret_key")

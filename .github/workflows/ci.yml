@@ -27,3 +27,15 @@ jobs:
         env:
           SECRET_KEY: ci-only-secret-not-for-production-0123456789
           DATABASE_URL: sqlite:///./ci.db
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -99,3 +99,44 @@ class FeedRun(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AuthorizedScope(TimestampMixin, Base):
+    """Explicitly approved network/domain scope for passive asset imports."""
+    __tablename__ = "authorized_scopes"
+    __table_args__ = (UniqueConstraint("scope_type", "value", name="uq_authorized_scope_type_value"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    value: Mapped[str] = mapped_column(String(253), nullable=False, index=True)
+    authorization_reference: Mapped[str] = mapped_column(String(240), nullable=False)
+    valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class SIEMEvent(Base):
+    __tablename__ = "siem_events"
+    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_siem_source_external_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(80), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
+    source_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    destination_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_event: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class ThreatCorrelation(Base):
+    __tablename__ = "threat_correlations"
+    siem_event_id: Mapped[int] = mapped_column(ForeignKey("siem_events.id", ondelete="CASCADE"), primary_key=True)
+    score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    matched_asset_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    matched_indicator_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    matched_vulnerability_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    rationale: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

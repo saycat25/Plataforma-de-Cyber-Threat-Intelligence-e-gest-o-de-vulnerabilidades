@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -170,3 +170,125 @@ class DashboardSummary(BaseModel):
     vulnerabilities_kev: int
     indicators_active: int
     cases_open: int
+
+
+class AuthorizedScopeCreate(BaseModel):
+    scope_type: Literal["cidr", "domain", "hostname"]
+    value: str = Field(min_length=3, max_length=253)
+    authorization_reference: str = Field(min_length=6, max_length=240)
+    valid_until: datetime
+
+
+class AuthorizedScopeOut(ORMModel):
+    id: int
+    scope_type: str
+    value: str
+    authorization_reference: str
+    valid_until: datetime
+    is_active: bool
+    created_at: datetime
+
+
+class DiscoveryAssetRecord(BaseModel):
+    name: str = Field(min_length=2, max_length=180)
+    hostname: str | None = Field(default=None, max_length=255)
+    ip_address: str | None = Field(default=None, max_length=64)
+    environment: Literal["production", "staging", "development", "test", "cloud", "on-prem"] = "production"
+    criticality: Literal["low", "medium", "high", "critical"] = "medium"
+    owner: str | None = Field(default=None, max_length=180)
+    internet_exposed: bool = False
+
+
+class DiscoveryImportRequest(BaseModel):
+    scope_id: int
+    source: str = Field(min_length=2, max_length=80)
+    assets: list[DiscoveryAssetRecord] = Field(min_length=1, max_length=250)
+
+
+class DiscoveryImportOut(BaseModel):
+    scope_id: int
+    records_seen: int
+    assets_created: int
+    assets_updated: int
+    source: str
+
+
+class TrivyImportRequest(BaseModel):
+    asset_id: int
+    report: dict
+
+
+class OpenVASImportRequest(BaseModel):
+    asset_id: int
+    report_xml: str = Field(min_length=20, max_length=8_000_000)
+
+
+class ScannerImportOut(BaseModel):
+    scanner: str
+    asset_id: int
+    findings_seen: int
+    vulnerabilities_created: int
+    vulnerabilities_updated: int
+    findings_ignored: int
+
+
+class SIEMEventIn(BaseModel):
+    source: str = Field(min_length=2, max_length=80)
+    external_id: str = Field(min_length=1, max_length=200)
+    event_type: str = Field(min_length=2, max_length=120)
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now().astimezone())
+    source_ip: str | None = Field(default=None, max_length=64)
+    destination_ip: str | None = Field(default=None, max_length=64)
+    indicator_values: list[str] = Field(default_factory=list, max_length=100)
+    summary: str = Field(min_length=2, max_length=4000)
+    raw_event: dict = Field(default_factory=dict)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def normalize_event_time(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    @field_validator("source_ip", "destination_ip")
+    @classmethod
+    def validate_event_ip(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        import ipaddress
+        return ipaddress.ip_address(value).compressed
+
+
+class SIEMEventOut(ORMModel):
+    id: int
+    source: str
+    external_id: str
+    event_type: str
+    severity: str
+    occurred_at: datetime
+    asset_id: int | None
+    source_ip: str | None
+    destination_ip: str | None
+    summary: str
+    created_at: datetime
+
+
+class SIEMIngestOut(BaseModel):
+    event: SIEMEventOut
+    duplicate: bool = False
+    correlation_score: int
+    matched_asset_ids: list[int]
+    matched_indicator_ids: list[int]
+    matched_vulnerability_ids: list[int]
+    rationale: list[str]
+
+
+class ThreatCorrelationOut(ORMModel):
+    siem_event_id: int
+    score: int
+    matched_asset_ids: list[int]
+    matched_indicator_ids: list[int]
+    matched_vulnerability_ids: list[int]
+    rationale: list[str]
+    created_at: datetime

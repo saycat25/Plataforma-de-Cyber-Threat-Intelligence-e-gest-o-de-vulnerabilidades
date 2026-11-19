@@ -7,11 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.routers import assets, audit, auth, cases, dashboard, indicators, intelligence, users, vulnerabilities
+from app.routers import assets, audit, auth, cases, dashboard, discovery, indicators, intelligence, scanners, siem, users, vulnerabilities
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("cti-platform")
-app = FastAPI(title=settings.app_name, version="0.1.0", description="Defensive Cyber Threat Intelligence and Vulnerability Management API", docs_url="/docs" if settings.app_env != "production" else None, redoc_url="/redoc" if settings.app_env != "production" else None)
+app = FastAPI(title=settings.app_name, version="0.2.0", description="Defensive Cyber Threat Intelligence and Vulnerability Management API", docs_url="/docs" if settings.app_env != "production" else None, redoc_url="/redoc" if settings.app_env != "production" else None)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_credentials=True, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["Authorization", "Content-Type", "X-Request-ID"])
 
 @app.middleware("http")
@@ -34,7 +34,7 @@ async def security_headers_and_logging(request: Request, call_next):
 
 @app.get("/health", tags=["operations"])
 def health():
-    return {"status": "ok", "service": "cti-platform-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "cti-platform-api", "version": "0.2.0"}
 
-for router in (auth.router, assets.router, vulnerabilities.router, indicators.router, cases.router, intelligence.router, dashboard.router, audit.router, users.router):
+for router in (auth.router, assets.router, vulnerabilities.router, indicators.router, cases.router, intelligence.router, discovery.router, scanners.router, siem.router, dashboard.router, audit.router, users.router):
     app.include_router(router, prefix="/api/v1")

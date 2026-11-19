@@ -16,12 +16,17 @@ Credenciais, tokens, inventário interno, indicadores restritos por TLP, evidên
 | Alteração de auditoria | Eventos append-only na API | Permissões DB restritas, armazenamento externo WORM e assinatura |
 | Exposição de segredos | `.env` ignorado pelo Git | Secret manager, scanner de secrets e rotação |
 | CVE/IOC malformado | Pydantic + normalizadores | Schemas de feed versionados e quarentena de dados |
+| Importação fora de autorização | Escopos CIDR/DNS com validade e rejeição integral de lote fora de escopo | Assinatura digital da autorização, aprovação dupla e tenant isolation |
+| XML external entity | DTD/ENTITY bloqueados antes do parser XML | Scanner de dependências e corpus de XML adversarial |
+| Replay/forja de webhook SIEM | HMAC-SHA256, comparação em tempo constante e deduplicação source/external_id | Timestamp assinado, janela anti-replay e rotação automatizada |
+| Evento SIEM excessivo | Limite de 1 MB, RBAC e limite de consulta | Rate limiting, fila e back-pressure por integração |
 
 ## Limites de confiança
 
 - Usuários autenticados ainda são entradas não confiáveis.
 - Feeds públicos e seus campos textuais são dados não confiáveis.
 - Saídas de LLM são sugestões não verificadas.
+- Relatórios Trivy/OpenVAS, eventos SIEM e dados importados são inputs externos não confiáveis, mesmo quando assinados/autenticados.
 - O banco é confiável apenas sob credenciais de serviço protegidas e backups verificados.
 
 ## Critérios de release
