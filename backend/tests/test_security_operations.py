@@ -193,3 +193,78 @@ def test_siem_event_rejects_invalid_ip(client, auth_headers):
         "source_ip": "999.999.999.999", "summary": "Invalid network indicator",
     })
     assert response.status_code == 422
+
+
+def test_discovery_import_deduplicates_repeated_identity_in_same_batch(client, auth_headers):
+    scope = client.post("/api/v1/discovery/scopes", headers=auth_headers, json={
+        "scope_type": "cidr", "value": "10.20.30.0/24",
+        "authorization_reference": "CHANGE-SEC-2026-202",
+        "valid_until": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+    })
+    assert scope.status_code == 201
+    records = [
+        {"name": "app01", "hostname": "app01.corp.example", "ip_address": "10.20.30.80"},
+        {"name": "app01-renamed", "hostname": "app01.corp.example", "ip_address": "10.20.30.80"},
+    ]
+    imported = client.post("/api/v1/discovery/import", headers=auth_headers, json={
+        "scope_id": scope.json()["id"], "source": "cmdb", "assets": records,
+    })
+    assert imported.status_code == 200
+    assert imported.json()["assets_created"] == 1
+    assert imported.json()["assets_updated"] == 1
+    assets = client.get("/api/v1/assets", headers=auth_headers).json()
+    assert len([asset for asset in assets if asset["ip_address"] == "10.20.30.80"]) == 1
+
+
+def test_siem_correlation_links_events_with_shared_ip_in_previous_15_minutes(client, auth_headers):
+    first = client.post("/api/v1/siem/events", headers=auth_headers, json={
+        "source": "test-siem", "external_id": "campaign-001", "event_type": "auth.failure",
+        "severity": "medium", "source_ip": "203.0.113.88", "summary": "Falhas de autenticação",
+    })
+    assert first.status_code == 200
+    second = client.post("/api/v1/siem/events", headers=auth_headers, json={
+        "source": "test-siem", "external_id": "campaign-002", "event_type": "auth.failure",
+        "severity": "high", "source_ip": "203.0.113.88", "summary": "Nova sequência de falhas de autenticação",
+    })
+    assert second.status_code == 200
+    assert second.json()["related_event_ids"] == [first.json()["event"]["id"]]
+    assert second.json()["correlation_score"] >= 30
+    correlations = client.get("/api/v1/siem/correlations", headers=auth_headers)
+    assert correlations.status_code == 200
+    assert correlations.json()[0]["related_event_ids"] == [first.json()["event"]["id"]]
+
+
+def test_discovery_import_rejects_ip_and_hostname_matching_different_assets(client, auth_headers):
+    first = client.post("/api/v1/assets", headers=auth_headers, json={
+        "name": "Servidor A", "hostname": "server-a.corp.example", "ip_address": "10.20.30.91",
+    })
+    second = client.post("/api/v1/assets", headers=auth_headers, json={
+        "name": "Servidor B", "hostname": "server-b.corp.example", "ip_address": "10.20.30.92",
+    })
+    assert first.status_code == second.status_code == 201
+    scope = client.post("/api/v1/discovery/scopes", headers=auth_headers, json={
+        "scope_type": "cidr", "value": "10.20.30.0/24",
+        "authorization_reference": "CHANGE-SEC-2026-203",
+        "valid_until": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+    })
+    assert scope.status_code == 201
+    conflict = client.post("/api/v1/discovery/import", headers=auth_headers, json={
+        "scope_id": scope.json()["id"], "source": "cmdb",
+        "assets": [{"name": "Conflict", "hostname": "server-b.corp.example", "ip_address": "10.20.30.91"}],
+    })
+    assert conflict.status_code == 409
+
+
+def test_siem_temporal_correlation_ignores_events_outside_15_minute_window(client, auth_headers):
+    old_time = (datetime.now(timezone.utc) - timedelta(minutes=16)).isoformat()
+    first = client.post("/api/v1/siem/events", headers=auth_headers, json={
+        "source": "test-siem", "external_id": "old-campaign-event", "event_type": "auth.failure",
+        "severity": "medium", "occurred_at": old_time, "source_ip": "203.0.113.89", "summary": "Evento antigo",
+    })
+    assert first.status_code == 200
+    second = client.post("/api/v1/siem/events", headers=auth_headers, json={
+        "source": "test-siem", "external_id": "new-campaign-event", "event_type": "auth.failure",
+        "severity": "medium", "source_ip": "203.0.113.89", "summary": "Evento atual",
+    })
+    assert second.status_code == 200
+    assert second.json()["related_event_ids"] == []

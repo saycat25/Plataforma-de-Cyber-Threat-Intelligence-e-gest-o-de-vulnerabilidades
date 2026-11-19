@@ -42,7 +42,7 @@ POST /api/v1/siem/webhook
 
 A API autenticada requer `admin` ou `analyst`. O webhook não usa JWT, mas exige HMAC-SHA256 no cabeçalho `X-CTI-Signature` e `SIEM_WEBHOOK_SECRET` configurado; aceita JSON normalizado ou CEF.
 
-O contrato JSON inclui `source`, `external_id`, `event_type`, `severity`, `summary` e campos opcionais `occurred_at`, `source_ip`, `destination_ip`, `indicator_values`, `raw_event`. A deduplicação usa origem + ID externo. A correlação é heurística auditável e não produz contenção automática.
+O contrato JSON inclui `source`, `external_id`, `event_type`, `severity`, `summary` e campos opcionais `occurred_at`, `source_ip`, `destination_ip`, `indicator_values`, `raw_event`. A deduplicação usa origem + ID externo. A correlação combina IP/ativo, IOCs, vulnerabilidades abertas e eventos com IP compartilhado na janela anterior de 15 minutos; a resposta inclui `related_event_ids`, score e justificativas. É uma heurística auditável e não produz contenção automática.
 
 ## DeepSeek
 

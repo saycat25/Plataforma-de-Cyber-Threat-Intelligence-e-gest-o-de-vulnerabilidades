@@ -27,6 +27,7 @@ def _ingest_response(db: Session, payload: SIEMEventIn, actor: User | None, requ
             "source": event.source,
             "severity": event.severity,
             "correlation_score": correlation.score,
+            "related_events": len(correlation.related_event_ids or []),
             "matched_indicators": len(correlation.matched_indicator_ids),
             "matched_vulnerabilities": len(correlation.matched_vulnerability_ids),
         }, request)
@@ -37,6 +38,7 @@ def _ingest_response(db: Session, payload: SIEMEventIn, actor: User | None, requ
         event=SIEMEventOut.model_validate(event),
         duplicate=duplicate,
         correlation_score=correlation.score,
+        related_event_ids=correlation.related_event_ids or [],
         matched_asset_ids=correlation.matched_asset_ids or [],
         matched_indicator_ids=correlation.matched_indicator_ids or [],
         matched_vulnerability_ids=correlation.matched_vulnerability_ids or [],
@@ -126,6 +128,7 @@ async def analyze_correlation(event_id: int, request: Request, db: Session = Dep
         },
         "correlation": {
             "score": correlation.score,
+            "related_event_ids": correlation.related_event_ids or [],
             "matched_asset_ids": correlation.matched_asset_ids or [],
             "rationale": correlation.rationale,
         },

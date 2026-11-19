@@ -116,7 +116,11 @@ class AuthorizedScope(TimestampMixin, Base):
 
 class SIEMEvent(Base):
     __tablename__ = "siem_events"
-    __table_args__ = (UniqueConstraint("source", "external_id", name="uq_siem_source_external_id"),)
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_siem_source_external_id"),
+        Index("ix_siem_event_source_ip_time", "source_ip", "occurred_at"),
+        Index("ix_siem_event_destination_ip_time", "destination_ip", "occurred_at"),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(80), nullable=False)
     external_id: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -135,6 +139,7 @@ class ThreatCorrelation(Base):
     __tablename__ = "threat_correlations"
     siem_event_id: Mapped[int] = mapped_column(ForeignKey("siem_events.id", ondelete="CASCADE"), primary_key=True)
     score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    related_event_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     matched_asset_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     matched_indicator_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     matched_vulnerability_ids: Mapped[list] = mapped_column(JSON, default=list, nullable=False)

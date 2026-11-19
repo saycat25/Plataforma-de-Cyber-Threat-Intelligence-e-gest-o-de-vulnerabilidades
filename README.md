@@ -2,7 +2,7 @@
 
 Plataforma defensiva para centralizar ativos autorizados, vulnerabilidades, indicadores de comprometimento (IOCs), inteligência de ameaças, investigações e trilhas de auditoria. A DeepSeek funciona como camada assistiva de análise; decisões de prioridade são calculadas por regras determinísticas e evidências verificáveis.
 
-> **Estado do projeto:** versão 0.2.0 com API FastAPI, autenticação RBAC, descoberta de ativos protegida por escopos autorizados, importação de relatórios Trivy/OpenVAS, ingestão SIEM por JWT/HMAC, correlação IOC–ativo–CVE, CISA KEV/NVD, análise assistiva DeepSeek, interface web, Docker, migração Alembic e testes automatizados. Ainda requer hardening, testes de carga, revisão independente e implantação controlada antes de uso em produção crítica.
+> **Estado do projeto:** versão 0.2.0 com API FastAPI, autenticação RBAC, descoberta de ativos protegida por escopos autorizados, importação de relatórios Trivy/OpenVAS, ingestão SIEM por JWT/HMAC, correlação temporal de eventos (15 min), IOC–ativo–CVE, CISA KEV/NVD, análise assistiva DeepSeek, interface web, Docker, migração Alembic e testes automatizados. Ainda requer hardening, testes de carga, revisão independente e implantação controlada antes de uso em produção crítica.
 
 ## Capacidades
 
@@ -15,7 +15,7 @@ Plataforma defensiva para centralizar ativos autorizados, vulnerabilidades, indi
 - **Descoberta autorizada:** escopos CIDR/domínio/hostname com referência formal, expiração e validação de cada ativo importado; nenhuma varredura de rede é iniciada pela plataforma.
 - **Scanner intake:** importação idempotente de relatórios Trivy JSON e OpenVAS/GVM XML, vinculados a um ativo existente e com recálculo de risco.
 - **SIEM:** ingestão de eventos JSON por API autenticada ou webhook CEF/JSON assinado HMAC-SHA256; deduplicação por origem/ID.
-- **Correlação:** associação determinística de eventos a IPs/ativos, IOCs ativos e vulnerabilidades abertas, com justificativas e pontuação de triagem.
+- **Correlação:** associação determinística de eventos a IPs/ativos, IOCs ativos e vulnerabilidades abertas, correlação temporal de 15 minutos, eventos relacionados, justificativas e pontuação de triagem.
 - **Auditoria:** trilha de eventos para ações de escrita e ingestão.
 - **DeepSeek:** análise contextual opcional via API compatível com OpenAI, sem conceder à IA autoridade para executar ações.
 - **Segurança:** JWT, Argon2id, papéis `admin`/`analyst`/`viewer`, CORS configurável, validação de entrada, limites de payload e headers de segurança.

@@ -77,7 +77,7 @@ Um coletor ou adaptador pode normalizar alertas e publicar em `POST /api/v1/siem
 }
 ```
 
-`source` + `external_id` são únicos para deduplicação. O serviço correlaciona IPs com ativos, `indicator_values` com IOCs ativos e vulnerabilidades abertas/in-progress do ativo encontrado. `GET /api/v1/siem/events` e `GET /api/v1/siem/correlations` exibem o histórico.
+`source` + `external_id` são únicos para deduplicação. O serviço correlaciona IPs com ativos, `indicator_values` com IOCs ativos e vulnerabilidades abertas/in-progress do ativo encontrado. Também relaciona eventos anteriores com IP compartilhado na janela de 15 minutos, registra os IDs relacionados e adiciona pontos limitados à pontuação determinística. `GET /api/v1/siem/events` e `GET /api/v1/siem/correlations` exibem o histórico.
 
 ### Webhook assinado
 
@@ -107,7 +107,7 @@ O parser CEF lê o cabeçalho e os campos comuns `src`, `dst`, `msg` e `external
 
 ## 5. Motor de correlação e DeepSeek
 
-A pontuação 0–100 é calculada pelo backend com base na severidade do evento, confiança dos IOCs, associação do ativo, vulnerabilidades abertas e presença de CVE no CISA KEV. A resposta inclui justificativas para que a equipe possa auditar a lógica. A escala é uma heurística inicial, não uma probabilidade estatística, não substitui regras do SIEM ou análise SOC e não deve disparar contenção automática.
+A pontuação 0–100 é calculada pelo backend com base na severidade do evento, sinais temporais com IP compartilhado nos 15 minutos anteriores, confiança dos IOCs, associação do ativo, vulnerabilidades abertas e presença de CVE no CISA KEV. A resposta inclui justificativas para que a equipe possa auditar a lógica. A escala é uma heurística inicial, não uma probabilidade estatística, não substitui regras do SIEM ou análise SOC e não deve disparar contenção automática.
 
 `POST /api/v1/siem/correlations/{event_id}/analysis` envia um resumo mínimo do evento/correlação/IOCs/CVEs à DeepSeek. A IA é consultiva, não possui ferramentas de execução e não pode alterar ativos, casos ou infraestrutura.
 

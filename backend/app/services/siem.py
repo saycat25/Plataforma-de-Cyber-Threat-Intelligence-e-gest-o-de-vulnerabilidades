@@ -1,9 +1,9 @@
 import hashlib
 import ipaddress
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Asset, Indicator, SIEMEvent, ThreatCorrelation, Vulnerability
@@ -77,6 +77,14 @@ def ingest_event(db: Session, payload: SIEMEventIn) -> tuple[SIEMEvent, ThreatCo
 
     ip_values = [value for value in (payload.source_ip, payload.destination_ip) if value]
     matched_assets = list(db.scalars(select(Asset).where(Asset.ip_address.in_(ip_values)).limit(50)).all()) if ip_values else []
+    related_events = []
+    if ip_values:
+        window_start = payload.occurred_at - timedelta(minutes=15)
+        related_events = list(db.scalars(select(SIEMEvent).where(
+            SIEMEvent.occurred_at >= window_start,
+            SIEMEvent.occurred_at <= payload.occurred_at,
+            or_(SIEMEvent.source_ip.in_(ip_values), SIEMEvent.destination_ip.in_(ip_values)),
+        ).order_by(SIEMEvent.occurred_at.desc()).limit(100)).all())
     asset = matched_assets[0] if matched_assets else None
     asset_ids = [item.id for item in matched_assets]
 
@@ -103,6 +111,10 @@ def ingest_event(db: Session, payload: SIEMEventIn) -> tuple[SIEMEvent, ThreatCo
     severity_base = {"low": 5, "medium": 15, "high": 25, "critical": 35}[payload.severity]
     score = severity_base
     rationale = [f"Severidade do evento: {payload.severity} (+{severity_base})."]
+    if related_events:
+        temporal_points = min(15, len(related_events) * 5)
+        score += temporal_points
+        rationale.append(f"{len(related_events)} evento(s) com IP compartilhado na janela anterior de 15 minutos (+{temporal_points}).")
     if indicators:
         confidence_points = min(35, round(max(item.confidence for item in indicators) * 0.35))
         score += confidence_points
@@ -139,6 +151,7 @@ def ingest_event(db: Session, payload: SIEMEventIn) -> tuple[SIEMEvent, ThreatCo
     correlation = ThreatCorrelation(
         siem_event_id=event.id,
         score=score,
+        related_event_ids=[item.id for item in related_events],
         matched_asset_ids=asset_ids,
         matched_indicator_ids=[item.id for item in indicators],
         matched_vulnerability_ids=[item.id for item in vulnerabilities],

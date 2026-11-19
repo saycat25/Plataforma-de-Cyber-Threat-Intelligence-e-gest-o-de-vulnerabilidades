@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.deps import get_current_user, require_roles
+from app.deps import require_roles
 from app.models import Asset, AuthorizedScope, User
 from app.schemas import AuthorizedScopeCreate, AuthorizedScopeOut, DiscoveryImportOut, DiscoveryImportRequest
 from app.services.audit import record_event
@@ -98,12 +98,16 @@ def import_discovered_assets(payload: DiscoveryImportRequest, request: Request, 
             conditions.append(Asset.ip_address == record.ip_address)
         if record.hostname:
             conditions.append(Asset.hostname == record.hostname.strip().lower())
-        existing = db.scalar(select(Asset).where(or_(*conditions)).limit(1)) if conditions else None
+        matches = list(db.scalars(select(Asset).where(or_(*conditions)).limit(2)).all()) if conditions else []
+        if len(matches) > 1:
+            raise HTTPException(409, "IP e hostname apontam para ativos diferentes; resolva a identidade antes da importação")
+        existing = matches[0] if matches else None
         if existing is None:
             asset = Asset(**record.model_dump())
             asset.hostname = record.hostname.strip().lower() if record.hostname else None
             asset.tags = [f"discovery:{payload.source}"]
             db.add(asset)
+            db.flush()
             created += 1
             continue
         existing.name = record.name

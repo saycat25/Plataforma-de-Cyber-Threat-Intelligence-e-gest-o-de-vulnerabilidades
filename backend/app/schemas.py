@@ -278,6 +278,7 @@ class SIEMIngestOut(BaseModel):
     event: SIEMEventOut
     duplicate: bool = False
     correlation_score: int
+    related_event_ids: list[int]
     matched_asset_ids: list[int]
     matched_indicator_ids: list[int]
     matched_vulnerability_ids: list[int]
@@ -287,6 +288,7 @@ class SIEMIngestOut(BaseModel):
 class ThreatCorrelationOut(ORMModel):
     siem_event_id: int
     score: int
+    related_event_ids: list[int]
     matched_asset_ids: list[int]
     matched_indicator_ids: list[int]
     matched_vulnerability_ids: list[int]

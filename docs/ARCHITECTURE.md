@@ -14,7 +14,7 @@ A arquitetura separa ingestão, domínio, análise e apresentação. A API mant�
 - **Authorized Discovery:** escopos CIDR/DNS com referência de autorização, validade e importação de inventário limitada ao escopo.
 - **Scanner Intake:** parsers de importação Trivy JSON e OpenVAS/GVM XML, vinculados a ativos cadastrados.
 - **SIEM Ingestion:** recepção de JSON via JWT ou JSON/CEF via HMAC-SHA256, com deduplicação.
-- **Threat Correlation:** associação determinística entre evento, IP do ativo, IOC ativo e vulnerabilidades abertas, com rationale persistida.
+- **Threat Correlation:** associação determinística entre evento, IP do ativo, IOC ativo e vulnerabilidades abertas; correlaciona sinais com IP compartilhado nos 15 minutos anteriores e persiste os eventos relacionados e a justificativa.
 - **AI Assist:** análise contextual sob demanda das evidências correlacionadas, com payload mínimo e sem side effects.
 
 ## Persistência
@@ -31,7 +31,7 @@ O score 0–100 é calculado em `app/services/risk.py`: CVSS (40), KEV (25), EPS
 
 ## Limites da versão 0.2.0
 
-A descoberta valida autorização e importa registros fornecidos por CMDB/scanner; não executa varreduras ativas. Os conectores de scanner não disparam jobs nem acessam os scanners. A integração SIEM fornece contrato genérico JWT/HMAC e parser CEF básico; conectores vendor-specific devem ser implementados em adaptadores. O motor de correlação inicial é uma heurística determinística e não é um mecanismo de detecção estatístico nem resposta automática.
+A descoberta valida autorização e importa registros fornecidos por CMDB/scanner; não executa varreduras ativas. Os conectores de scanner não disparam jobs nem acessam os scanners. A integração SIEM fornece contrato genérico JWT/HMAC e parser CEF básico; conectores vendor-specific devem ser implementados em adaptadores. O motor de correlação inicial combina contexto IOC–ativo–CVE e janela temporal de 15 minutos; é uma heurística determinística, não um mecanismo de detecção estatístico nem resposta automática.
 
 ## Próximos passos de escala
 
